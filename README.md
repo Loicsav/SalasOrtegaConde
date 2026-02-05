@@ -1,2 +1,14 @@
-# SalasOrtegaConde1
-Práctica 1 de la asignatura de Extensiones de Machine Learning del máster de Inteligencia Artificial de la Universidad de Murcia.
+# Práctica 1 Extensión de Machine Learning (k_brazos)
+## Información
+- **Alumnos:** Salas, Manuel; Ortega, Alberto; Conde, Lola
+- **Asignatura:** Extensión de Machine Learning
+- **Curso:** 2025/2026
+- **Grupo:** SalasOrtegaConde
+
+## Descripción
+
+## Estructura
+
+## Instalación y Uso
+
+## Tecnologías Utilizadas
