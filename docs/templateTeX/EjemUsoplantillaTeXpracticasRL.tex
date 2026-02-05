@@ -1,0 +1,53 @@
+% --------------------- NO TOCAR ----------------------
+\documentclass[a4paper, 10pt, twocolumn]{report}
+\input plantillaTeXpracticasRL.sty % Incluir fichero de estilo del máster
+% -----------------------------------------------------
+
+
+
+% MODIFICA ESTOS DATOS
+% Incluir el nombre de la obra y los nombres completos de los autores del trabajo, junto con el correo electrónico um.es para cada autor.
+\title{Titulo del Trabajo: Aprendizaje por Refuerzo\footnote{Comentario que se quiera, si se quiere.}}
+\author{
+Autor1 	\\
+\texttt{autor1@um.es} \\[0.25cm]
+Autor2 	\\
+\texttt{autor2@um.es} \\[0.25cm]
+Autor3 	\\
+\texttt{autor3@um.es}}
+
+
+
+\begin{document}
+
+% Carátula
+\maketitle % Puedes modificar la carátula usando el entorno titlepage.
+
+% Resumen
+\input{resumen}
+
+% Índice
+\tableofcontents
+
+% Trabajos
+\input{bandido}
+\input{entornos_complejos}
+
+% Bibliografía
+\begin{thebibliography}{9} % El parámetro 9 indica el ancho máximo de la etiqueta, aquí "9" es un ejemplo
+	\setlength{\itemsep}{0pt} % No tocar. Reduce aún más el espacio entre ítems 
+  	\setlength{\parsep}{0pt}    % No tocar. Elimina el espacio adicional entre párrafos dentro de un ítem
+  	
+    \bibitem{ref1} % Para citar usar \cite{ref1}
+    Autor, A. (Año). \textit{Título del artículo}. Nombre de la revista, Volumen(Número), páginas.
+
+    \bibitem{ref2} % Para citar usar \cite{ref2}
+    Autor, B. (Año). \textit{Título del libro}. Editorial.
+    
+\end{thebibliography}
+
+
+Listar todas las referencias utilizadas en el trabajo, siguiendo un formato bibliográfico estándar de \LaTeX\/ o de alguna asociación (APA, IEEE, etc.). La información obligatoria para que tipo de publicación la puede consultar en \url{https://bibtex.eu/fields/} Se recomienda utilizar un gestor de referencias como Bib\TeX\/ para facilitar la organización de las citas solo si va a poner mucha bibliografía. 
+
+
+\end{document}
