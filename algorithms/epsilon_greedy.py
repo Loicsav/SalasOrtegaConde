@@ -38,8 +38,10 @@ class EpsilonGreedy(Algorithm):
         :return: índice del brazo seleccionado.
         """
 
-        # Observa que para para epsilon=0 solo selecciona un brazo y no hace un primer recorrido por todos ellos.
-        # ¿Podrías modificar el código para que funcione correctamente para epsilon=0?
+        # Selecciona cada brazo mínimo 1 vez
+        for arm in range(self.k):
+            if self.counts[arm] == 0:
+                return arm
 
         if np.random.random() < self.epsilon:
             # Selecciona un brazo al azar
