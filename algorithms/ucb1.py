@@ -43,12 +43,17 @@ class UCB1(Algorithm):
 
         :return: índice del brazo seleccionado.
         """
+        # Asegurar que todos los brazos se seleccionan al menos una vez para evitar división por cero
+        for i in range(self.k):
+            if self.counts[i] == 0:
+                return i
+
         # Calcula el número total de pasos
         total_steps = np.sum(self.counts)
         
         # Inicializa un array para almacenar los índices UCB
         ucb_values = np.zeros(self.k)
-        ucb_values = self.values + np.sqrt(2*np.log(total_steps) / self.counts)
+        ucb_values = self.values + self.c * np.sqrt((2 * np.log(total_steps)) / self.counts)
         
         # Selecciona el brazo con el mayor índice UCB
         chosen_arm = np.argmax(ucb_values)
