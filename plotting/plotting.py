@@ -18,7 +18,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from algorithms import Algorithm, EpsilonGreedy, UCB1
+from algorithms import Algorithm, EpsilonGreedy, UCB1, Softmax
 
 
 def get_algorithm_label(algo: Algorithm) -> str:
@@ -35,6 +35,8 @@ def get_algorithm_label(algo: Algorithm) -> str:
         label += f" (epsilon={algo.epsilon})"
     elif isinstance(algo, UCB1):
          label += f" (c={algo.c})"
+    elif isinstance(algo, Softmax):
+         label += f" (tau={algo.tau})"
     #Añadir más condiciones para otros algoritmos aquí
     # elif isinstance(algo, OtroAlgoritmo):
     #     label += f" (parametro={algo.parametro})"
@@ -44,13 +46,14 @@ def get_algorithm_label(algo: Algorithm) -> str:
     return label
 
 
-def plot_average_rewards(steps: int, rewards: np.ndarray, algorithms: List[Algorithm]):
+def plot_average_rewards(steps: int, rewards: np.ndarray, algorithms: List[Algorithm], optimal_reward: float = None):
     """
     Genera la gráfica de Recompensa Promedio vs Pasos de Tiempo.
 
     :param steps: Número de pasos de tiempo.
     :param rewards: Matriz de recompensas promedio.
     :param algorithms: Lista de instancias de algoritmos comparados.
+    :param optimal_reward: Recompensa esperada del brazo óptimo (opcional).
     """
     sns.set_theme(style="whitegrid", palette="muted", font_scale=1.2)
 
@@ -58,6 +61,9 @@ def plot_average_rewards(steps: int, rewards: np.ndarray, algorithms: List[Algor
     for idx, algo in enumerate(algorithms):
         label = get_algorithm_label(algo)
         plt.plot(range(steps), rewards[idx], label=label, linewidth=2)
+
+    if optimal_reward is not None:
+        plt.axhline(y=optimal_reward, color='black', linestyle='--', label='Recompensa Óptima', linewidth=2)
 
     plt.xlabel('Pasos de Tiempo', fontsize=14)
     plt.ylabel('Recompensa Promedio', fontsize=14)
