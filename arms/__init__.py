@@ -1,6 +1,6 @@
 """
-Module: plotting/__init__.py
-Description: Contiene las importaciones y modulos/clases públicas del paquete plotting.
+Module: arms/__init__.py
+Description: Contiene las importaciones y modulos/clases públicas del paquete arms.
 
 Author: Luis Daniel Hernández Molinero
 Email: ldaniel@um.es
@@ -12,9 +12,16 @@ with the additional restriction that it may not be used for commercial purposes.
 For more details about GPL-3.0: https://www.gnu.org/licenses/gpl-3.0.html
 """
 
+
 # Importación de módulos o clases
-from .plotting import plot_average_rewards, plot_optimal_selections
+from .arm import Arm
+from .armnormal import ArmNormal
+from .bandit import Bandit
+from .armbernoulli import ArmBernoulli
+from .armbinomial import ArmBinomial
 
 # Lista de módulos o clases públicas
-__all__ = ['plot_average_rewards', 'plot_optimal_selections']
+__all__ = ['Arm', 'ArmNormal', 'Bandit', 'ArmBernoulli', 'ArmBinomial']
+
+
 
