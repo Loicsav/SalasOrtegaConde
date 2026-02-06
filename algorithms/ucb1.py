@@ -48,9 +48,7 @@ class UCB1(Algorithm):
         
         # Inicializa un array para almacenar los índices UCB
         ucb_values = np.zeros(self.k)
-        
-        exploration_bonus = self.c * np.sqrt(2*np.log(total_steps) / self.counts)
-        ucb_values = self.values + exploration_bonus
+        ucb_values = self.values + np.sqrt(2*np.log(total_steps) / self.counts)
         
         # Selecciona el brazo con el mayor índice UCB
         chosen_arm = np.argmax(ucb_values)
