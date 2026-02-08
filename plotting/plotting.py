@@ -17,6 +17,7 @@ from typing import List
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from algorithms import Algorithm, EpsilonGreedy, UCB1, Softmax
 
@@ -95,8 +96,89 @@ def plot_optimal_selections(steps: int, optimal_selections: np.ndarray, algorith
     plt.tight_layout()
     plt.show()
 
+def boxplot_estimaciones_brazos(all_runs_rewards, all_runs_counts, algorithms, true_rewards=None, custom_labels=None):
+    sns.set_theme(style="whitegrid", context="talk")
+    
+    all_data = []
+    
+    for algo_idx, algo in enumerate(algorithms):
+        # Establece una etiqueta para cada algoritmo para la leyenda
+        if custom_labels:
+            algo_label = custom_labels[algo_idx]
+        elif hasattr(algo, 'epsilon'):
+            algo_label = f"$\epsilon={algo.epsilon}$"
+        else:
+            algo_label = f"Algoritmo {algo_idx + 1}"
+        
+        # Estimaciones final de recompensa y número de ejecuciones de cada brazo para cada ejecución para el algoritmo
+        runs_rewards = all_runs_rewards[algo_idx]
+        runs_counts = all_runs_counts[algo_idx]
+        
+        # Por cada ejecución y brazo, se guarda su información
+        for run_idx in range(len(runs_rewards)):
+            for arm_idx in range(len(runs_rewards[run_idx])):
+                all_data.append({
+                    "Brazo": f"B{arm_idx + 1}",
+                    "Brazo_idx": arm_idx,
+                    "Estimación": runs_rewards[run_idx][arm_idx],
+                    "Count": runs_counts[run_idx][arm_idx],
+                    "Algoritmo": algo_label
+                })
+    # Se crea un dataframe con la información para su ploteo
+    df = pd.DataFrame(all_data)
+    
+    # Se configura el gráfico
+    plt.figure(figsize=(18, 9))
+    n_algos = len(df['Algoritmo'].unique()) # Número de algoritmos distintos
+    
+    ax = sns.boxplot(
+        data=df, 
+        x="Brazo", 
+        y="Estimación", 
+        hue="Algoritmo", 
+        palette="viridis", 
+        showfliers=False, 
+        width=0.8, 
+        linewidth=1.5
+    )
 
-def plot_arm_statistics(arm_stats, algorithms):
+    # Se dibuja en verde los valores de recompensa real por cada brazo
+    if true_rewards is not None:
+        for i, true_val in enumerate(true_rewards):
+            ax.hlines(y=true_val, xmin=i-0.4, xmax=i+0.4, colors='#2ECC71', linestyles='--', linewidth=1.5, zorder=10)
+
+    # Añadir los count medios
+    width = 0.8
+    offsets = np.linspace(-width/2, width/2, n_algos + 1)
+    offsets = (offsets[:-1] + offsets[1:]) / 2 # Se calcula el centro de cada número
+    
+    # Agrupamos por brazo y algoritmo y calculamos la media del número de selecciones
+    stats = df.groupby(['Brazo_idx', 'Algoritmo'])['Count'].mean().reset_index()
+    
+    # Nombres de los algoritmos
+    algo_order = df['Algoritmo'].unique()
+    
+    for arm_idx in range(len(df['Brazo'].unique())):
+        for j, algo_name in enumerate(algo_order):
+            # Media del número de selecciones
+            mean_count = stats[(stats['Brazo_idx'] == arm_idx) & 
+                               (stats['Algoritmo'] == algo_name)]['Count'].values[0]
+            
+            # Posición del texto (número de selecciones medio)
+            pos_x = arm_idx + offsets[j]
+            
+            # Escribir el texto
+            y_pos = ax.get_ylim()[0] # Parte inferior de la gráfica
+            ax.text(pos_x, y_pos, f'{(mean_count/10):.2f}', ha='center', va='bottom', fontsize=10, fontweight='bold', color='black', alpha=0.7)
+
+    # Imprimir la gráfica
+    plt.title("Comparativa de estimaciones de recompensa", fontsize=20, pad=30)
+    plt.legend(title="Configuración", bbox_to_anchor=(1.02, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_arm_statistics(arm_stats, algorithms, true_rewards):
     """
     Genera gráficos separados mostrando la selección de brazos y sus recompensas promedio.
 
@@ -136,6 +218,9 @@ def plot_arm_statistics(arm_stats, algorithms):
         
         # Crear gráfico de barras
         ax.bar(x_labels, mean_rewards, color=colors)
+
+        for i, true_val in enumerate(true_rewards):
+            ax.hlines(y=true_val, xmin=i-0.4, xmax=i+0.4, colors='black', linestyles='--', linewidth=3, label='Real' if i == 0 else "")
         
         # Configuración de ejes y título
         ax.set_xlabel("Nº selecciones del Brazo")
