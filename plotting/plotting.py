@@ -107,6 +107,8 @@ def boxplot_estimaciones_brazos(all_runs_rewards, all_runs_counts, algorithms, t
             algo_label = custom_labels[algo_idx]
         elif hasattr(algo, 'epsilon'):
             algo_label = f"$\epsilon={algo.epsilon}$"
+        elif hasattr(algo, 'c'):
+            algo_label = f"$c={algo.c}$"
         else:
             algo_label = f"Algoritmo {algo_idx + 1}"
         
