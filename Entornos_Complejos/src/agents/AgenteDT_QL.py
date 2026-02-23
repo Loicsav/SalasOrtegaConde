@@ -4,8 +4,8 @@ import numpy as np
 from src.agents.agent import Agent
 
 class AgenteDT_QL(Agent):
-    def __init__(self, env, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
-        super().__init__(env)
+    def __init__(self, env, seed: int, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
+        super().__init__(env, seed)
         self.discount_factor = discount_factor  
         self.epsilon = epsilon
         self.decay = decay  
@@ -16,7 +16,7 @@ class AgenteDT_QL(Agent):
         
         # Tabla Q 
         self.nA = env.action_space.n
-        self.Q1 = np.zeros([env.observation_space.n, self.nA])
+        self.Q = np.zeros([env.observation_space.n, self.nA])
 
 
     def get_action(self, state, n:int):
@@ -33,7 +33,7 @@ class AgenteDT_QL(Agent):
 
 
         pi_A = np.ones(self.nA, dtype=float) * self.epsilon / self.nA
-        best_action = np.argmax(self.Q1[state])  # Seleccionamos la acción con el valor Q más alto sumando ambas tablas Q
+        best_action = np.argmax(self.Q[state])  # Seleccionamos la acción con el valor Q más alto sumando ambas tablas Q
         pi_A[best_action] += (1.0 - self.epsilon)
         return np.random.choice(np.arange(self.nA), p=pi_A)
 
@@ -56,10 +56,10 @@ class AgenteDT_QL(Agent):
 
         if episode_state != 0:
             # Si no es el primer estado del episodio, actualizamos el valor de Q para el estado anterior
-            self.Q1[state][action] += self.alpha * (reward - self.Q1[state][action])
+            self.Q[state][action] += self.alpha * (reward - self.Q[state][action])
             return
         
-        # Actualizamos Q1 utilizando la acción seleccionada por Q1
-        best_action = np.argmax(self.Q1[next_state])  # Obtenemos la acción para el siguiente estado utilizando la política epsilon-greedy
-        target = reward + self.discount_factor * self.Q1[next_state][best_action]
-        self.Q1[state][action] += self.alpha * (target - self.Q1[state][action])
+        # Actualizamos Q utilizando la acción seleccionada por Q
+        best_action = np.argmax(self.Q[next_state])  # Obtenemos la acción para el siguiente estado utilizando la política epsilon-greedy
+        target = reward + self.discount_factor * self.Q[next_state][best_action]
+        self.Q[state][action] += self.alpha * (target - self.Q[state][action])

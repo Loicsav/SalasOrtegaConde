@@ -4,8 +4,9 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 class Agent(ABC):
-    def __init__(self, env):
+    def __init__(self, env, seed: int):
         self.env = env
+        np.random.seed(seed)  # Fija la semilla para NumPy
 
 
     @abstractmethod

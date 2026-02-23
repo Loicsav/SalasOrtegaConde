@@ -4,8 +4,8 @@ import numpy as np
 from src.agents.agent import Agent
 
 class AgenteDT_Sarsa(Agent):
-    def __init__(self, env, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
-        super().__init__(env)
+    def __init__(self, env, seed: int,  num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
+        super().__init__(env, seed)
         self.discount_factor = discount_factor  
         self.epsilon = epsilon
         self.decay = decay  

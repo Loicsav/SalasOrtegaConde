@@ -10,7 +10,7 @@ class AgenteMC_OffPolicy(Agent):
     Implementa el algoritmo de Monte Carlo para todas las visitas.
     """
     
-    def __init__(self, env, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False):
+    def __init__(self, env, seed: int,  num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate: float = 1000.0 ):
         """
         Inicializa el agente de Monte Carlo Off-Policy.
         
@@ -19,10 +19,11 @@ class AgenteMC_OffPolicy(Agent):
             discount_factor: Factor de descuento para el cálculo de retornos
             epsilon: Parámetro de exploración epsilon-greedy para la política de comportamiento
         """
-        super().__init__(env)
+        super().__init__(env, seed)
         self.discount_factor = discount_factor
         self.epsilon = epsilon
         self.decay = decay
+        self.decay_rate = decay_rate
         self.num_episodes = num_episodes
         
         # C(s,a): Suma de los pesos de importancia acumulados
@@ -47,13 +48,12 @@ class AgenteMC_OffPolicy(Agent):
             action: Acción seleccionada
         """
         if self.decay:
-            epsilon = min(1.0, 1000.0 / (n + 1))
-        else:
-            epsilon = self.epsilon
+            self.epsilon = min(1.0, self.decay_rate / (n + 1))
 
-        pi_A = np.ones(self.nA, dtype=float) * epsilon / self.nA
+
+        pi_A = np.ones(self.nA, dtype=float) * self.epsilon / self.nA
         best_action =  self.policy[state]
-        pi_A[best_action] += (1.0 - epsilon)
+        pi_A[best_action] += (1.0 - self.epsilon)
         return np.random.choice(np.arange(self.nA), p=pi_A)
 
     def update(self, episode: List[Tuple[int, int, float]]):
