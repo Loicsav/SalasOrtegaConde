@@ -1,6 +1,12 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import re
+import os
+from IPython.display import HTML
+from base64 import b64encode
 
 
 def generar_video(env, Q, video_folder, num_episodes=1, seed=42):
@@ -11,7 +17,7 @@ def generar_video(env, Q, video_folder, num_episodes=1, seed=42):
         video_folder=video_folder,
         episode_trigger=trigger #, #(episode_id + 0) % 5 == 0, # Graba todos los episodios
         #name_prefix="lander_episode" # Prefijo para los nombres de los archivos de vídeo
-        #name_prefix=lambda episode_id: f"lander_episodio_{(episode_id + 1):03d}_",  # Función lambda en name_prefix
+        #name_prefix=lambda episode_id: f"lander_episodio_{(episode_id + 1):03d}_"  # Función lambda en name_prefix
     )
 
     #env = RecordVideo(env, './video')
@@ -40,10 +46,20 @@ def generar_video(env, Q, video_folder, num_episodes=1, seed=42):
     env.close() # Importante cerrar el entorno, ¡esto finaliza la grabación de vídeo!
     print(f"Grabación de episodios completada. Vídeos guardados en la carpeta '{video_folder}'")
 
+def mostrar_video(ruta_video, ancho=600):
+  # Leer el video y convertirlo a base64
+  video_file = open(ruta_video, "rb").read()
+  video_url = f"data:video/mp4;base64,{b64encode(video_file).decode()}"
+  
+  # Retornar el HTML para mostrarlo
+  return HTML(f"""
+  <video width="{ancho}" controls>
+    <source src="{video_url}" type="video/mp4">
+  </video>
+  """)
 
 
-import seaborn as sns
-import matplotlib.pyplot as plt
+
 
 def qtable_directions_map(qtable, map_size):
     """Get the best learned action & map it to arrows."""
@@ -90,3 +106,66 @@ def plot_q_values_map(qtable, env, map_size):
         spine.set_linewidth(0.7)
         spine.set_color("black")
     plt.show()
+
+def plot(list_stats):
+  # Creamos una lista de índices para el eje x
+  indices = list(range(len(list_stats)))
+
+  # Creamos el gráfico
+  plt.figure(figsize=(6, 3))
+  plt.plot(indices, list_stats)
+
+  # Añadimos título y etiquetas
+  plt.title('Proporción de recompensas')
+  plt.xlabel('Episodio')
+  plt.ylabel('Proporción')
+
+  # Mostramos el gráfico
+  plt.grid(True)
+  plt.show()
+
+# Define la función para mostrar el tamaño de los episodios
+def plot_lengths(episode_lengths):
+    indices = list(range(len(episode_lengths)))
+    
+    # Calculamos la media móvil (curva de tendencia)
+    window_size = 50 
+    moving_avg = np.convolve(episode_lengths, np.ones(window_size)/window_size, mode='valid')
+
+    # Creamos el gráfico
+    plt.figure(figsize=(10, 5))
+    
+    # Graficamos la longitud de cada episodio
+    plt.plot(indices, episode_lengths, label='Longitud Episodio', alpha=0.3, color='blue')
+    
+    # Graficamos la tendencia
+    # Ajustamos el rango de x para la media móvil.
+    # Dado que mode='valid', el resultado tiene longitud N - K + 1.
+    # El primer punto corresponde al promedio de los primeros K puntos (0 a K-1).
+    # Lo alineamos al final de la ventana, es decir, x empieza en K-1.
+    plt.plot(range(window_size-1, len(episode_lengths)), moving_avg, color='red', linewidth=2, label=f'Tendencia (Media móvil {window_size})')
+
+    plt.title('Longitud de los episodios durante el entrenamiento')
+    plt.xlabel('Episodio')
+    plt.ylabel('Longitud (Pasos)')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def get_latest_episode_video_file(directory):
+    # Expresión regular que coincide con el formato de los ficheros de video
+    pattern = re.compile(r"rl-video-episode-(\d+)\.mp4")
+    latest_file = None
+    highest_episode = -1
+
+    # Busca en el directorio
+    for filename in os.listdir(directory):
+        match = pattern.match(filename)
+        if match:
+            episode_number = int(match.group(1))  # Extrae el número de episodio
+            # Comprobamos, para conseguir el número de episodio más alto.
+            if episode_number > highest_episode:
+                highest_episode = episode_number
+                latest_file = os.path.join(directory, filename)  # Almacena el path completo
+
+    return latest_file
