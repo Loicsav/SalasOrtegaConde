@@ -28,7 +28,7 @@ class AgenteDT_Sarsa(Agent):
             action: Acción seleccionada
         """
         if self.decay:
-            self.epsilon = min(1.0, self.decay_rate / (n + 1))
+            self.epsilon = max(0.1, min(1.0, self.decay_rate / (n + 1)))
 
         pi_A = np.ones(self.nA, dtype=float) * self.epsilon / self.nA
         best_action = np.argmax(self.Q[state])

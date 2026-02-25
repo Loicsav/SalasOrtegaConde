@@ -1,3 +1,5 @@
+import base64
+
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 import numpy as np
@@ -7,6 +9,12 @@ import re
 import os
 from IPython.display import HTML
 from base64 import b64encode
+
+
+import torch  # PyTorch: manejo de tensores y redes neuronales.
+import torch.nn as nn  # Módulo para definir modelos de redes neuronales.
+import torch.nn.functional as F  # Funciones de activación y utilidades de PyTorch.
+import imageio  # Para crear el GIF a partir de los fotogramas.
 
 
 def generar_video(env, Q, video_folder, num_episodes=1, seed=42):
@@ -169,3 +177,128 @@ def get_latest_episode_video_file(directory):
                 latest_file = os.path.join(directory, filename)  # Almacena el path completo
 
     return latest_file
+
+
+
+def greedy_action_q_network(q_network, state):
+    """
+    Selecciona la acción óptima (greedy) para un estado dado utilizando la red Q.
+
+    Parámetros:
+      - q_network (QNetwork): Red neuronal con los pesos cargados.
+      - state: Estado actual del entorno (puede ser una lista o tensor).
+
+    Retorna:
+      - int: Acción que maximiza 
+.
+    """
+    # Desactivamos el cálculo de gradientes (no es necesario en modo evaluación).
+    with torch.no_grad():
+        # Convertir el estado a tensor si no lo es y añadir dimensión de batch.
+        if not isinstance(state, torch.Tensor):
+            state = torch.FloatTensor(state).unsqueeze(0)
+        # Calcular los valores Q para el estado.
+        q_values = q_network(state)
+        # Seleccionar la acción que maximiza Q(s,a).
+        action = torch.argmax(q_values).item()
+    return action
+
+def greedy_action_tiling(q, state):
+    """
+    Selecciona la acción óptima (greedy) para un estado dado utilizando la red Q.
+
+    Parámetros:
+      - q (list of arrays): Valores Q para cada tilings.
+      - state: Estado actual del entorno (puede ser una lista o tensor).
+
+    Retorna:
+      - int: Acción que maximiza 
+.
+    """
+    av_list = []
+    for k, idx in enumerate(state):
+        av = q[k][idx]
+        av_list.append(av)
+
+    av = np.mean(av_list, axis=0)
+    return np.random.choice(np.flatnonzero(av==av.max()))
+
+def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500):
+    """
+    Ejecuta un episodio usando la política greedy y captura los fotogramas.
+
+    Parámetros:
+      - env: Entorno Gymnasium configurado con render_mode='rgb_array'.
+      - q (list of arrays): Valores Q para cada tilings.
+      - tipo_algoritmo (str): Tipo de algoritmo ("Tiling" o "QNetwork").
+      - max_steps (int): Número máximo de pasos a ejecutar en el episodio.
+
+    Retorna:
+      - list: Lista de fotogramas (imágenes) capturados durante el episodio.
+    """
+    frames = []  # Lista para almacenar cada fotograma.
+
+    # Reiniciar el entorno y obtener el estado inicial.
+    state, _ = env.reset()
+    done = False  # Indicador de finalización del episodio.
+
+    # Ejecutar el episodio hasta max_steps o hasta que el entorno indique que ha terminado.
+    for _ in range(max_steps):
+        # Capturar el fotograma actual del entorno.
+        frame = env.render()
+        frames.append(frame)
+
+        # Seleccionar la acción óptima utilizando la función greedy.
+        if tipo_algoritmo == "Tiling":
+            action = greedy_action_tiling(q, state)
+        elif tipo_algoritmo == "QNetwork":
+            action = greedy_action_q_network(q, state)
+        else:
+            raise ValueError("tipo_algoritmo debe ser 'Tiling' o 'QNetwork'.")
+
+        # Ejecutar la acción en el entorno y obtener el siguiente estado y otros datos.
+        next_state, reward, done, truncated, info = env.step(action)
+        state = next_state  # Actualizar el estado.
+
+        # Si el episodio ha terminado o se ha truncado, capturar el fotograma final y salir.
+        if done or truncated:
+            frames.append(env.render())
+            break
+
+    return frames
+
+def frames_to_gif(frames, filename="cartpole_sarsa.gif"):
+    """
+    Crea un archivo GIF a partir de una lista de fotogramas.
+
+    Parámetros:
+      - frames (list): Lista de fotogramas (imágenes) capturados del entorno.
+      - filename (str): Nombre del archivo GIF resultante.
+
+    Retorna:
+      - str: Nombre del archivo GIF creado.
+    """
+    # Abrir un escritor de GIF con imageio.
+    with imageio.get_writer(filename, mode='I') as writer:
+        # Agregar cada fotograma al GIF.
+        for frame in frames:
+            writer.append_data(frame)
+    return filename
+
+def display_gif(gif_path):
+    """
+    Muestra un GIF en Google Colab.
+
+    Parámetros:
+      - gif_path (str): Ruta del archivo GIF.
+
+    Retorna:
+      - HTML: Objeto HTML que contiene el GIF incrustado.
+    """
+    # Abrir el archivo GIF en modo binario.
+    with open(gif_path, 'rb') as f:
+        video = f.read()
+    # Convertir el contenido del GIF a una cadena Base64.
+    b64 = base64.b64encode(video)
+    # Retornar el objeto HTML que muestra el GIF.
+    return HTML(f'<img src="data:image/gif;base64,{b64.decode()}" style="border: 2px solid black;">')
