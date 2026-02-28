@@ -178,30 +178,29 @@ def get_latest_episode_video_file(directory):
 
     return latest_file
 
+def _state_to_tensor(state, device):
+    s = np.asarray(state, dtype=np.float32).reshape(1, -1)  # (10,2) -> (1,20)
+    return torch.from_numpy(s).to(device)
 
-
-def greedy_action_q_network(q_network, state):
+def greedy_action_q_network(q_network, state, device):
     """
     Selecciona la acción óptima (greedy) para un estado dado utilizando la red Q.
 
     Parámetros:
       - q_network (QNetwork): Red neuronal con los pesos cargados.
       - state: Estado actual del entorno (puede ser una lista o tensor).
+      - device: Dispositivo donde se ejecuta la red neuronal (CPU o GPU).
 
     Retorna:
       - int: Acción que maximiza 
 .
     """
     # Desactivamos el cálculo de gradientes (no es necesario en modo evaluación).
+    # Explotación
+    state_t = _state_to_tensor(state, device)
     with torch.no_grad():
-        # Convertir el estado a tensor si no lo es y añadir dimensión de batch.
-        if not isinstance(state, torch.Tensor):
-            state = torch.FloatTensor(state).unsqueeze(0)
-        # Calcular los valores Q para el estado.
-        q_values = q_network(state)
-        # Seleccionar la acción que maximiza Q(s,a).
-        action = torch.argmax(q_values).item()
-    return action
+        q_values = q_network(state_t)
+    return int(q_values.argmax(dim=1).item())
 
 def greedy_action_tiling(q, state):
     """
@@ -223,7 +222,7 @@ def greedy_action_tiling(q, state):
     av = np.mean(av_list, axis=0)
     return np.random.choice(np.flatnonzero(av==av.max()))
 
-def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500):
+def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500, device=None):
     """
     Ejecuta un episodio usando la política greedy y captura los fotogramas.
 
@@ -252,7 +251,7 @@ def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500):
         if tipo_algoritmo == "Tiling":
             action = greedy_action_tiling(q, state)
         elif tipo_algoritmo == "QNetwork":
-            action = greedy_action_q_network(q, state)
+            action = greedy_action_q_network(q, state, device)
         else:
             raise ValueError("tipo_algoritmo debe ser 'Tiling' o 'QNetwork'.")
 
