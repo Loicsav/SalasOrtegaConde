@@ -50,6 +50,12 @@ class TileCodingEnv(ObservationWrapper):
             tiling_indices = tuple(np.digitize(i, b) for i, b in zip(obs, t))
             indices.append(tiling_indices)  # Se agrega la tupla de índices correspondiente a la tiling actual.
         return indices  # Retorna la lista de índices de todas las tilings.
+    
+    def preprocess_state(selt, state):
+        """
+        Preprocesa el estado para convertir la representacion 
+        """
+        return 0
 
     def _create_tilings(self, bins, high, low, n):
         """

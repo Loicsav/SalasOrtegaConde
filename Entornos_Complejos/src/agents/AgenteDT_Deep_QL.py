@@ -1,5 +1,6 @@
 from queue import Queue
 from collections import defaultdict
+from random import random
 import gymnasium as gym
 import numpy as np
 from src.agents.agent import Agent
@@ -28,6 +29,9 @@ class QNetwork(nn.Module):
         # Capa de salida: de hidden_dim a número de acciones.
         self.fc3 = nn.Linear(hidden_dim, action_dim)
 
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)  # Optimizador para entrenar la red Q
+        self.loss = nn.MSELoss()  # Función de pérdida para entrenar la red Q
+
     def forward(self, x):
         """
         Propagación hacia adelante.
@@ -47,7 +51,7 @@ class QNetwork(nn.Module):
         return x
      
 
-class AgenteDT_DeepQL(Agent):
+class AgenteDT_DobleDeepQL(Agent):
     def __init__(self, env, seed: int, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
         super().__init__(env, seed)
         self.discount_factor = discount_factor  
@@ -56,12 +60,15 @@ class AgenteDT_DeepQL(Agent):
         self.decay_rate = decay_rate
         self.num_episodes = num_episodes
         self.nA = env.action_space.n
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Configuración para usar GPU si está disponible
         # Diccionarios para almacenar retornos y conteos
         self.visit_counts = defaultdict(int)  # {(state, action): count}
-        self.qNetwork = QNetwork(env.observation_space.n, self.nA )  # Red neuronal para aproximar Q
-        self.targetNetwork = QNetwork(env.observation_space.n, self.nA )  # Red objetivo para estabilidad
 
-        self.d = Queue()  # Memoria de experiencia para el replay buffer
+        self.qNetwork = QNetwork(env.observation_space.shape[0], self.nA )  # Red neuronal para aproximar Q
+        self.targetNetwork = QNetwork(env.observation_space.shape[0], self.nA )  # Red objetivo para estabilidad
+
+
+        self.d = Queue(maxsize=10000)  # Memoria de experiencia para el replay buffer
     
 
     def save_experience(self, state, action, reward, next_state, done):
@@ -79,29 +86,45 @@ class AgenteDT_DeepQL(Agent):
             self.d.get()  # Eliminar la experiencia más antigua si la memoria está llena
         self.d.put((state, action, reward, next_state, done))
 
+    def update_target_network(self):
+        """
+        Actualiza la red objetivo con los pesos de la red principal.
+        """
+        self.targetNetwork.load_state_dict(self.qNetwork.state_dict())
+
+    def _state_to_tensor(self, state):
+        s = np.asarray(state, dtype=np.float32).reshape(1, -1)  # (10,2) -> (1,20)
+        return torch.from_numpy(s).to(self.device)
+
     def get_action(self, state, n:int):
         """
-        Selecciona una acción utilizando una política epsilon-greedy basada en la tabla Q.
-        
-        Args:
-            state: Estado actual del entorno
-        Returns:
-            action: Acción seleccionada
+        Selecciona una acción usando política epsilon-greedy.
         """
-        with torch.no_grad():
-            if np.random.random() < self.epsilon:
-                return np.random.randint(self.nA) # Selecciona una acción al azar
-            else:
-                # Convertir el estado a tensor si no lo es y añadir dimensión de batch.
-                if not isinstance(state, torch.Tensor):
-                    state = torch.FloatTensor(state).unsqueeze(0)
-                # Calcular los valores Q para el estado.
-                q_values = self.qNetwork(state)
-                # Seleccionar la acción que maximiza Q(s,a).
-                action = torch.argmax(q_values).item()
-                return action
 
-    def update(self, state, action, reward, next_state, next_action, episode_state:int):
+        if np.random.random() < self.epsilon:
+            # Exploración
+            return np.random.randint(self.nA)
+        else:
+            # Explotación
+            state_t = self._state_to_tensor(state)
+            with torch.no_grad():
+                q_values = self.qNetwork(state_t)
+            return int(q_values.argmax(dim=1).item())
+
+
+    def _sample_experience(self, batch_size=64):
+        batch = random.sample(self.d.queue, min(batch_size, len(self.d.queue)))
+        states, actions, rewards, next_states, dones = zip(*batch)
+
+        states = torch.FloatTensor(np.array(states)).to(self.device)
+        actions = torch.LongTensor(actions).unsqueeze(1).to(self.device)
+        rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
+        next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
+        dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
+
+        return states, actions, rewards, next_states, dones
+
+    def update(self):
         """
         Actualiza la tabla Q utilizando la tupla (state, action, reward, next_state, next_action).
         
@@ -112,18 +135,33 @@ class AgenteDT_DeepQL(Agent):
             next_state: Estado siguiente al tomar la acción
             next_action: Acción que se tomará en el siguiente estado (para SARSA)
         """
-        # Incrementamos el conteo de visitas para este par (state, action)
-        self.visit_counts[(state, action)] += 1
-        # Calculamos el paso de aprendizaje (learning rate) como 1 / N(state, action)
-        self.alpha = min(1, 100.0 / self.visit_counts[(state, action)])
+        if len(self.d.queue) < 64:
+            return  # no hay suficientes muestras
         
+        states, actions, rewards, next_states, dones = self._sample_experience(64)
 
-        if episode_state != 0:
-            # Si no es el primer estado del episodio, actualizamos el valor de Q para el estado anterior
-            self.Q[state][action] += self.alpha * (reward - self.Q[state][action])
-            return
+        states = torch.as_tensor(np.array(states), dtype=torch.float32, device=self.device).view(len(states), -1)
+        next_states = torch.as_tensor(np.array(next_states), dtype=torch.float32, device=self.device).view(len(next_states), -1)
         
-        # Actualizamos Q utilizando la acción seleccionada por Q
-        best_action = np.argmax(self.Q[next_state])  # Obtenemos la acción para el siguiente estado utilizando la política epsilon-greedy
-        target = reward + self.discount_factor * self.Q[next_state][best_action]
-        self.Q[state][action] += self.alpha * (target - self.Q[state][action])
+        # Q(s, a) actual (predicción de la red online)
+        q_vals = self.qNetwork(states).gather(1, actions)
+
+        # Acciones óptimas según la red online en el siguiente estado
+        with torch.no_grad():
+            next_q_online = self.qNetwork(next_states)
+            next_actions = next_q_online.argmax(dim=1, keepdim=True)
+
+            # Valores Q de esas acciones pero usando la red target
+            next_q_target = self.targetNetwork(next_states)
+            next_q_vals = next_q_target.gather(1, next_actions)
+
+            # Cálculo del target Double DQN
+            target = rewards + self.discount_factor * next_q_vals * (1 - dones)
+
+        # Pérdida y paso de optimización
+        loss = self.qNetwork.loss(q_vals, target)
+
+        self.qNetwork.optimizer.zero_grad()
+        loss.backward()
+        self.qNetwork.optimizer.step()
+
