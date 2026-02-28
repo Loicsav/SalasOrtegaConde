@@ -1,167 +1,159 @@
-from queue import Queue
+from collections import deque
 from collections import defaultdict
 import random
 import gymnasium as gym
 import numpy as np
 from src.agents.agent import Agent
-# Importamos las librerías necesarias
-import torch  # PyTorch: manejo de tensores y redes neuronales.
-import torch.nn as nn  # Módulo para definir modelos de redes neuronales.
-import torch.nn.functional as F  # Funciones de activación y utilidades de PyTorch.
-
+import torch  
+import torch.nn as nn  
+import torch.nn.functional as F  
 
 class QNetwork(nn.Module):
-    """
-    Red neuronal para aproximar la función Q.
-
-    Parámetros:
-      - state_dim (int): Dimensión del estado (para CartPole: 4).
-      - action_dim (int): Número de acciones posibles (para CartPole: 2).
-      - hidden_dim (int): Número de neuronas en las capas ocultas (por defecto: 64).
-    """
-
+    # ... (Tu código de QNetwork se mantiene exactamente igual) ...
     def __init__(self, state_dim, action_dim, hidden_dim=64):
         super(QNetwork, self).__init__()
-        # Primera capa: de estado a capa oculta de tamaño hidden_dim.
         self.fc1 = nn.Linear(state_dim, hidden_dim)
-        # Segunda capa oculta.
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        # Capa de salida: de hidden_dim a número de acciones.
         self.fc3 = nn.Linear(hidden_dim, action_dim)
 
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)  # Optimizador para entrenar la red Q
-        self.loss = nn.MSELoss()  # Función de pérdida para entrenar la red Q
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+        self.loss = nn.MSELoss()
 
     def forward(self, x):
-        """
-        Propagación hacia adelante.
-
-        Parámetro:
-          - x (Tensor): Estado de entrada con forma [batch_size, state_dim].
-
-        Retorna:
-          - Tensor: Valores Q para cada acción, con forma [batch_size, action_dim].
-        """
-        # Aplicar la primera capa seguida de ReLU.
         x = F.relu(self.fc1(x))
-        # Aplicar la segunda capa seguida de ReLU.
         x = F.relu(self.fc2(x))
-        # Capa de salida sin activación, para obtener los valores Q.
         x = self.fc3(x)
         return x
-     
 
 class AgenteDT_DobleDeepQL(Agent):
     def __init__(self, env, seed: int, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
         super().__init__(env, seed)
         self.discount_factor = discount_factor  
         self.epsilon = epsilon
+        self.epsilon_init = epsilon
         self.decay = decay  
         self.decay_rate = decay_rate
         self.num_episodes = num_episodes
         self.nA = env.action_space.n
-        self.device = torch.device("cuda")  # Configuración para usar GPU si está disponible
-        # Diccionarios para almacenar retornos y conteos
-        self.visit_counts = defaultdict(int)  # {(state, action): count}
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        
+        self.visit_counts = defaultdict(int)
 
-        self.qNetwork = QNetwork(env.observation_space.shape[0], self.nA ).to(self.device)  # Red neuronal para aproximar Q
-        self.targetNetwork = QNetwork(env.observation_space.shape[0], self.nA ).to(self.device)  # Red objetivo para estabilidad
+        # NOTA: Asegúrate de que env.observation_space.shape[0] devuelva 20 (el tamaño de tu array aplanado de 10 tuplas)
+        state_dim_one_hot = 400 
+        
+        self.qNetwork = QNetwork(state_dim_one_hot, self.nA).to(self.device)
+        self.targetNetwork = QNetwork(state_dim_one_hot, self.nA).to(self.device)
+        self.update_target_network()
 
-
-        self.d = Queue(maxsize=10000)  # Memoria de experiencia para el replay buffer
+        self.d = deque(maxlen=10000)
     
-
     def save_experience(self, state, action, reward, next_state, done):
-        """
-        Guarda la experiencia en la memoria de replay.
-
-        Parámetros:
-          - state (array): Estado actual.
-          - action (int): Acción tomada.
-          - reward (float): Recompensa recibida.
-          - next_state (array): Estado siguiente.
-          - done (bool): Indica si el episodio ha terminado.
-        """
-        if self.d.full():
-            self.d.get()  # Eliminar la experiencia más antigua si la memoria está llena
-        self.d.put((state, action, reward, next_state, done))
+        self.d.append((state, action, reward, next_state, done))
 
     def update_target_network(self):
-        """
-        Actualiza la red objetivo con los pesos de la red principal.
-        """
         self.targetNetwork.load_state_dict(self.qNetwork.state_dict())
 
     def _state_to_tensor(self, state):
-        s = np.asarray(state, dtype=np.float32).reshape(1, -1)  # (10,2) -> (1,20)
-        return torch.from_numpy(s).to(self.device)
+        """
+        Convierte el estado a un vector One-Hot Encoding aplanado.
+        """
+        # 1. Aplanamos la matriz de tuplas a un array de enteros: (10, 2) -> (20,)
+        s = np.asarray(state, dtype=np.int64).flatten() 
+        
+        # 2. Convertimos a tensor de PyTorch
+        s_tensor = torch.from_numpy(s).to(self.device)
+        
+        # 3. Aplicamos One-Hot Encoding. Asumimos que los valores van de 0 a 19.
+        # Esto genera una matriz de shape (20, 20)
+        s_one_hot = F.one_hot(s_tensor, num_classes=20)
+        
+        # 4. Aplanamos todo a un solo vector de (1, 400) y lo pasamos a float
+        # Es necesario pasarlo a float porque la red neuronal espera decimales para los pesos
+        s_one_hot_flat = s_one_hot.view(1, -1).float()
+        
+        return s_one_hot_flat
 
     def get_action(self, state, n:int):
-        """
-        Selecciona una acción usando política epsilon-greedy.
-        """
+        if self.decay:
+            self.epsilon = min(self.epsilon_init, self.decay_rate / (n + 1))
 
         if np.random.random() < self.epsilon:
-            # Exploración
             return np.random.randint(self.nA)
         else:
-            # Explotación
-            state_t = self._state_to_tensor(state)
             with torch.no_grad():
-                q_values = self.qNetwork(state_t)
-            return int(q_values.argmax(dim=1).item())
+                state_tensor = self._state_to_tensor(state)
+                q_values = self.qNetwork(state_tensor)
+                action = torch.argmax(q_values).item()
+            return action
 
+    # --- NUEVOS MÉTODOS COMPLETADOS ---
 
-    def _sample_experience(self, batch_size=64):
-        batch = random.sample(self.d.queue, min(batch_size, len(self.d.queue)))
+    def _sample_experience(self, batch_size):
+        # Con deque, sample es directo y ultrarrápido
+        batch = random.sample(self.d, batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
-
-        #states = torch.FloatTensor(np.array(states)).to(self.device)
-        actions = torch.LongTensor(actions).unsqueeze(1).to(self.device)
-        rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
-        #next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
-        dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
-
-        return states, actions, rewards, next_states, dones
+        
+        # 1. Convertimos toda la tupla de estados en un solo array de NumPy de golpe y aplanamos (64, 20)
+        states_np = np.array(states, dtype=np.int64).reshape(batch_size, -1)
+        next_states_np = np.array(next_states, dtype=np.int64).reshape(batch_size, -1)
+        
+        # 2. Enviamos al dispositivo (GPU/CPU) de una sola vez
+        states_tensor = torch.from_numpy(states_np).to(self.device)
+        next_states_tensor = torch.from_numpy(next_states_np).to(self.device)
+        
+        # 3. Aplicamos One-Hot a todo el bloque y aplanamos (batch_size, 400)
+        states_tensor = F.one_hot(states_tensor, num_classes=20).view(batch_size, -1).float()
+        next_states_tensor = F.one_hot(next_states_tensor, num_classes=20).view(batch_size, -1).float()
+        
+        # 4. Resto de tensores
+        actions_tensor = torch.tensor(actions, dtype=torch.int64, device=self.device).unsqueeze(1)
+        rewards_tensor = torch.tensor(rewards, dtype=torch.float32, device=self.device).unsqueeze(1)
+        dones_tensor = torch.tensor(dones, dtype=torch.float32, device=self.device).unsqueeze(1)
+        
+        return states_tensor, actions_tensor, rewards_tensor, next_states_tensor, dones_tensor
 
     def update(self):
         """
-        Actualiza la tabla Q utilizando la tupla (state, action, reward, next_state, next_action).
-        
-        Args:
-            state: Estado actual del entorno
-            action: Acción tomada en el estado actual
-            reward: Recompensa recibida después de tomar la acción
-            next_state: Estado siguiente al tomar la acción
-            next_action: Acción que se tomará en el siguiente estado (para SARSA)
+        Actualiza la red Q utilizando un lote de experiencias (Double DQN).
         """
-        if len(self.d.queue) < 64:
-            return  # no hay suficientes muestras
-        
+        # Usamos len() porque self.d es de tipo deque
+        if len(self.d) < 64:
+            return
+            
         states, actions, rewards, next_states, dones = self._sample_experience(64)
 
-        states = torch.as_tensor(np.array(states), dtype=torch.float32, device=self.device).view(len(states), -1)
-        next_states = torch.as_tensor(np.array(next_states), dtype=torch.float32, device=self.device).view(len(next_states), -1)
-        
-        # Q(s, a) actual (predicción de la red online)
-        q_vals = self.qNetwork(states).gather(1, actions)
+        # 1. Obtener los valores Q actuales Q(s, a) desde la red principal
+        current_q_values = self.qNetwork(states).gather(1, actions)
 
-        # Acciones óptimas según la red online en el siguiente estado
+        # 2. Lógica de Double DQN para calcular el valor objetivo (target)
         with torch.no_grad():
-            next_q_online = self.qNetwork(next_states)
-            next_actions = next_q_online.argmax(dim=1, keepdim=True)
+            # A) La red PRINCIPAL decide cuál es la mejor acción en el estado siguiente
+            best_next_actions = self.qNetwork(next_states).argmax(dim=1, keepdim=True)
+            
+            # B) La red OBJETIVO evalúa el valor Q de esa acción específica
+            next_q_values = self.targetNetwork(next_states).gather(1, best_next_actions)
+            
+            # C) Calcular el objetivo con la ecuación de Bellman (si don=1, next_q_values se anula)
+            target_q_values = rewards + (self.discount_factor * next_q_values * (1 - dones))
 
-            # Valores Q de esas acciones pero usando la red target
-            next_q_target = self.targetNetwork(next_states)
-            next_q_vals = next_q_target.gather(1, next_actions)
+        # 3. Calcular la pérdida usando MSE
+        loss = self.qNetwork.loss(current_q_values, target_q_values)
 
-            # Cálculo del target Double DQN
-            target = rewards + self.discount_factor * next_q_vals * (1 - dones)
-
-        # Pérdida y paso de optimización
-        loss = self.qNetwork.loss(q_vals, target)
-
+        # 4. Optimizar los pesos de la red principal
         self.qNetwork.optimizer.zero_grad()
         loss.backward()
+        
+        # Opcional pero muy recomendado: Recortar gradientes para evitar inestabilidad
+        torch.nn.utils.clip_grad_norm_(self.qNetwork.parameters(), max_norm=1.0)
+        
         self.qNetwork.optimizer.step()
 
+    # ----------------------------------
+
+    def save(self, path):
+        torch.save(self.qNetwork.state_dict(), path)
+
+    def load(self, path):
+        self.qNetwork.load_state_dict(torch.load(path, map_location=self.device))
+        self.targetNetwork.load_state_dict(self.qNetwork.state_dict())

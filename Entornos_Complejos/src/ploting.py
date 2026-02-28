@@ -179,8 +179,24 @@ def get_latest_episode_video_file(directory):
     return latest_file
 
 def _state_to_tensor(state, device):
-    s = np.asarray(state, dtype=np.float32).reshape(1, -1)  # (10,2) -> (1,20)
-    return torch.from_numpy(s).to(device)
+    """
+    Convierte el estado a un vector One-Hot Encoding aplanado.
+    """
+    # 1. Aplanamos la matriz de tuplas a un array de enteros: (10, 2) -> (20,)
+    s = np.asarray(state, dtype=np.int64).flatten() 
+    
+    # 2. Convertimos a tensor de PyTorch
+    s_tensor = torch.from_numpy(s).to(device)
+    
+    # 3. Aplicamos One-Hot Encoding. Asumimos que los valores van de 0 a 19.
+    # Esto genera una matriz de shape (20, 20)
+    s_one_hot = F.one_hot(s_tensor, num_classes=20)
+    
+    # 4. Aplanamos todo a un solo vector de (1, 400) y lo pasamos a float
+    # Es necesario pasarlo a float porque la red neuronal espera decimales para los pesos
+    s_one_hot_flat = s_one_hot.view(1, -1).float()
+    
+    return s_one_hot_flat
 
 def greedy_action_q_network(q_network, state, device):
     """
@@ -265,6 +281,7 @@ def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500, device=No
             break
 
     return frames
+
 
 def frames_to_gif(frames, filename="cartpole_sarsa.gif"):
     """

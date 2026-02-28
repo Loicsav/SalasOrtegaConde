@@ -24,7 +24,6 @@ class TileCodingEnv(ObservationWrapper):
         Se llama al método _create_tilings para generar las rejillas desplazadas.
         """
         super().__init__(env)  # Llama al constructor de la clase padre ObservationWrapper.
-
         random.seed(seed)  # Establece la semilla para reproducibilidad.
         np.random.seed(seed)  # Establece la semilla para reproducibilidad en numpy.
         self.n = n  # Número de tilings a crear.
@@ -32,6 +31,7 @@ class TileCodingEnv(ObservationWrapper):
         self.tilings = self._create_tilings(bins, high, low, n)  # Crea y almacena las tilings.
         # el vector de observación tendrá C componentes. Por ejemplo, para 2 dimensiones × 4 tilings = C = 8.
         self.observation_space = gym.spaces.MultiDiscrete(nvec=bins.tolist()*n)
+    
 
     def observation(self, obs):  # Es necesario sobreescribir este método de ObservationWrapper
         """
