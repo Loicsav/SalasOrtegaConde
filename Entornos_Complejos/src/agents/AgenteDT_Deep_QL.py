@@ -1,6 +1,6 @@
 from queue import Queue
 from collections import defaultdict
-from random import random
+import random
 import gymnasium as gym
 import numpy as np
 from src.agents.agent import Agent
@@ -60,12 +60,12 @@ class AgenteDT_DobleDeepQL(Agent):
         self.decay_rate = decay_rate
         self.num_episodes = num_episodes
         self.nA = env.action_space.n
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Configuración para usar GPU si está disponible
+        self.device = torch.device("cuda")  # Configuración para usar GPU si está disponible
         # Diccionarios para almacenar retornos y conteos
         self.visit_counts = defaultdict(int)  # {(state, action): count}
 
-        self.qNetwork = QNetwork(env.observation_space.shape[0], self.nA )  # Red neuronal para aproximar Q
-        self.targetNetwork = QNetwork(env.observation_space.shape[0], self.nA )  # Red objetivo para estabilidad
+        self.qNetwork = QNetwork(env.observation_space.shape[0], self.nA ).to(self.device)  # Red neuronal para aproximar Q
+        self.targetNetwork = QNetwork(env.observation_space.shape[0], self.nA ).to(self.device)  # Red objetivo para estabilidad
 
 
         self.d = Queue(maxsize=10000)  # Memoria de experiencia para el replay buffer
@@ -116,10 +116,10 @@ class AgenteDT_DobleDeepQL(Agent):
         batch = random.sample(self.d.queue, min(batch_size, len(self.d.queue)))
         states, actions, rewards, next_states, dones = zip(*batch)
 
-        states = torch.FloatTensor(np.array(states)).to(self.device)
+        #states = torch.FloatTensor(np.array(states)).to(self.device)
         actions = torch.LongTensor(actions).unsqueeze(1).to(self.device)
         rewards = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
-        next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
+        #next_states = torch.FloatTensor(np.array(next_states)).to(self.device)
         dones = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
 
         return states, actions, rewards, next_states, dones
