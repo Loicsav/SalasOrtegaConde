@@ -25,7 +25,7 @@ class QNetwork(nn.Module):
         x = self.fc3(x)
         return x
 
-class AgenteDT_DeepQL(Agent):
+class AgenteDT_DobleDeepQL(Agent):
     def __init__(self, env, seed: int, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
         super().__init__(env, seed)
         self.discount_factor = discount_factor  
@@ -126,21 +126,27 @@ class AgenteDT_DeepQL(Agent):
         # 1. Obtener los valores Q actuales Q(s, a) desde la red principal
         current_q_values = self.qNetwork(states).gather(1, actions)
 
-        states, actions, rewards, next_states, dones = self._sample_experience(64)
-
-        # 1. Obtener los valores Q actuales Q(s, a) desde la red principal
-        current_q_values = self.qNetwork(states).gather(1, actions)
-
+        # 2. Lógica de Double DQN para calcular el valor objetivo (target)
         with torch.no_grad():
-            next_q_vals = self.targetNetwork(next_states).max(1)[0].unsqueeze(1)
+            # A) La red PRINCIPAL decide cuál es la mejor acción en el estado siguiente
+            best_next_actions = self.qNetwork(next_states).argmax(dim=1, keepdim=True)
+            
+            # B) La red OBJETIVO evalúa el valor Q de esa acción específica
+            next_q_values = self.targetNetwork(next_states).gather(1, best_next_actions)
+            
+            # C) Calcular el objetivo con la ecuación de Bellman (si don=1, next_q_values se anula)
+            target_q_values = rewards + (self.discount_factor * next_q_values * (1 - dones))
 
-            target = rewards + self.discount_factor * next_q_vals * (1 - dones)
+        # 3. Calcular la pérdida usando MSE
+        loss = self.qNetwork.loss(current_q_values, target_q_values)
 
-        # Pérdida y paso de optimización
-        loss = self.qNetwork.loss(current_q_values, target)
-
+        # 4. Optimizar los pesos de la red principal
         self.qNetwork.optimizer.zero_grad()
         loss.backward()
+        
+        # Opcional pero muy recomendado: Recortar gradientes para evitar inestabilidad
+        torch.nn.utils.clip_grad_norm_(self.qNetwork.parameters(), max_norm=1.0)
+        
         self.qNetwork.optimizer.step()
 
     # ----------------------------------
