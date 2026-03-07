@@ -33,7 +33,9 @@ class AgenteDT_QL(Agent):
 
 
         pi_A = np.ones(self.nA, dtype=float) * self.epsilon / self.nA
-        best_action = np.argmax(self.Q[state])  # Seleccionamos la acción con el valor Q más alto sumando ambas tablas Q
+        best_actions = np.argwhere(self.Q[state] == np.max(self.Q[state])).flatten()  # Puede haber múltiples acciones con el mismo valor máximo
+        best_action = np.random.choice(best_actions)  # Elegimos aleatoriamente entre las
+        # best_action = np.argmax(self.Q[state])  # Seleccionamos la acción con el valor Q más alto sumando ambas tablas Q
         pi_A[best_action] += (1.0 - self.epsilon)
         return np.random.choice(np.arange(self.nA), p=pi_A)
 

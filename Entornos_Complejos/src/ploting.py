@@ -3,6 +3,7 @@ import base64
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
@@ -353,3 +354,40 @@ def display_gif(gif_path):
     b64 = base64.b64encode(video)
     # Retornar el objeto HTML que muestra el GIF.
     return HTML(f'<img src="data:image/gif;base64,{b64.decode()}" style="border: 2px solid black;">')
+
+def save_training_results_to_csv(filename, results):
+    """
+    Guarda los resultados del entrenamiento (recompensas promedio y longitudes de episodios)
+    de varios algoritmos en un archivo CSV.
+
+    Args:
+        filename (str): Nombre del archivo donde se guardarán los datos (ej: 'resultados.csv').
+        results (dict): Un diccionario donde las claves son los nombres de los algoritmos 
+                        y los valores son diccionarios con claves 'stats' (lista de recompensas promedio)
+                        y 'lengths' (lista de longitudes de episodio).
+                        Ejemplo:
+                        {
+                            'SARSA': {'stats': [0.1, 0.2], 'lengths': [100, 90]},
+                            'Q-Learning': {'stats': [0.1, 0.3], 'lengths': [100, 80]}
+                        }
+    """
+    data_list = []
+    
+    for algo_name, metrics in results.items():
+        stats = metrics.get('stats', [])
+        lengths = metrics.get('lengths', [])
+        
+        # Determinar la longitud mínima para evitar errores si las listas no coinciden
+        min_len = min(len(stats), len(lengths))
+        
+        for i in range(min_len):
+            data_list.append({
+                'Algorithm': algo_name,
+                'Episode': i + 1,
+                'Average_Reward': stats[i],
+                'Episode_Length': lengths[i]
+            })
+            
+    df = pd.DataFrame(data_list)
+    df.to_csv(filename, index=False)
+    print(f"Datos de entrenamiento guardados exitosamente en {filename}")
