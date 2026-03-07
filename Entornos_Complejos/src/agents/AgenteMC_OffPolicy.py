@@ -80,7 +80,9 @@ class AgenteMC_OffPolicy(Agent):
             self.Q[state, action] += (W / self.C[state, action]) * (G - self.Q[state, action])
             
             # Política objetivo (Target Policy) es Greedy
-            self.policy[state] = np.argmax(self.Q[state])
+            best_actions = np.argwhere(self.Q[state] == np.max(self.Q[state])).flatten()  # Puede haber múltiples acciones con el mismo valor máximo
+            
+            self.policy[state] = np.random.choice(best_actions)
             
             # Si la acción tomada NO fue la mejor según la política objetivo,
             # entonces la probabilidad de esa acción en la target policy es 0.
@@ -129,7 +131,8 @@ class AgenteMC_OffPolicy(Agent):
             self.Q[state, action] += (W / self.C[state, action]) * (G - self.Q[state, action])
             
             # Política objetivo (Target Policy) es Greedy
-            self.policy[state] = np.argmax(self.Q[state])
+            best_actions = np.argwhere(self.Q[state] == np.max(self.Q[state])).flatten()  # Puede haber múltiples acciones con el mismo valor máximo
+            self.policy[state] = np.random.choice(best_actions)
             
             # Si la acción tomada NO fue la mejor según la política objetivo,
             # entonces la probabilidad de esa acción en la target policy es 0.

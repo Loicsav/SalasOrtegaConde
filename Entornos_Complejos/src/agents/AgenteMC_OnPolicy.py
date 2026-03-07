@@ -46,7 +46,8 @@ class AgenteMC_OnPolicy(Agent):
 
 
         pi_A = np.ones(self.nA, dtype=float) * self.epsilon / self.nA
-        best_action = np.argmax(self.Q[state])
+        best_actions = np.argwhere(self.Q[state] == np.max(self.Q[state])).flatten()  # Puede haber múltiples acciones con el mismo valor máximo
+        best_action = np.random.choice(best_actions)  # Elegimos aleatoriamente entre las
         pi_A[best_action] += (1.0 - self.epsilon)
         return np.random.choice(np.arange(self.nA), p=pi_A)
     
@@ -70,5 +71,31 @@ class AgenteMC_OnPolicy(Agent):
             alpha = 1.0 / self.visit_counts[(state, action)]
             self.Q[state, action] += alpha * (G - self.Q[state, action])
 
+    def update_first_visit(self, episode: List[Tuple[int, int, float]]):
+        """
+        Actualiza la tabla Q utilizando el episodio completo.
+        
+        Args:
+            episode: Lista de tuplas (state, action, reward) que representan el episodio completo
+        """
+        G = 0.0
+        episode_return = 0.0 # Variable extra solo para mantener tus estadísticas originales
 
+        # Índice de primera aparición de cada (state,action)
+        first_idx = {}  # (s,a) -> t
+        for t, (s, a, r) in enumerate(episode):
+            key = (s, a)
+            if key not in first_idx:
+                first_idx[key] = t
+        
+        # Iteramos el episodio al revés para calcular G_t eficientemente
+        for (state, action, reward) in reversed(episode):
+            # Calculamos el retorno desde el final hacia el principio
+            G = reward + self.discount_factor * G
+            
+            # Actualizamos Q (First-Visit: actualizamos solo la primera vez que vemos el estado-acción)
+            if (state, action) in first_idx and first_idx[(state, action)] == episode.index((state, action, reward)):
+                self.visit_counts[(state, action)] += 1.0
+                alpha = 1.0 / self.visit_counts[(state, action)]
+                self.Q[state, action] += alpha * (G - self.Q[state, action])
 

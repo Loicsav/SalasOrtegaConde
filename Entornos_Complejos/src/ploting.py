@@ -160,6 +160,41 @@ def plot_lengths(episode_lengths):
     plt.grid(True)
     plt.show()
 
+def plot_two_lengths(episode_lengths1, episode_lengths2, window_size=50):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5), sharey=True)
+
+    def plot_one(ax, episode_lengths, title):
+        indices = list(range(len(episode_lengths)))
+        if len(episode_lengths) >= window_size:
+            moving_avg = np.convolve(
+                episode_lengths,
+                np.ones(window_size)/window_size,
+                mode='valid'
+            )
+            ax.plot(indices, episode_lengths,
+                    label='Longitud Episodio',
+                    alpha=0.3, color='blue')
+            ax.plot(range(window_size-1, len(episode_lengths)),
+                    moving_avg, color='red', linewidth=2,
+                    label=f'Tendencia (Media mÃ³vil {window_size})')
+        else:
+            ax.plot(indices, episode_lengths,
+                    label='Longitud Episodio',
+                    alpha=0.3, color='blue')
+
+        ax.set_title(title)
+        ax.set_xlabel('Episodio')
+        ax.grid(True)
+        ax.legend()
+
+    plot_one(ax1, episode_lengths1, 'Entrenamiento 1')
+    plot_one(ax2, episode_lengths2, 'Entrenamiento 2')
+
+    fig.suptitle('Longitud de los episodios durante el entrenamiento')
+    ax1.set_ylabel('Longitud (Pasos)')  # eje Y compartido
+    plt.tight_layout()
+    plt.show()
+
 def get_latest_episode_video_file(directory):
     # Expresión regular que coincide con el formato de los ficheros de video
     pattern = re.compile(r"rl-video-episode-(\d+)\.mp4")
@@ -238,7 +273,7 @@ def greedy_action_tiling(q, state):
     av = np.mean(av_list, axis=0)
     return np.random.choice(np.flatnonzero(av==av.max()))
 
-def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500, device=None):
+def run_episode_greedy(env, q, seed=42, tipo_algoritmo="Tiling", max_steps=500, device=None):
     """
     Ejecuta un episodio usando la política greedy y captura los fotogramas.
 
@@ -254,7 +289,7 @@ def run_episode_greedy(env, q, tipo_algoritmo="Tiling", max_steps=500, device=No
     frames = []  # Lista para almacenar cada fotograma.
 
     # Reiniciar el entorno y obtener el estado inicial.
-    state, _ = env.reset()
+    state, _ = env.reset(seed=seed)
     done = False  # Indicador de finalización del episodio.
 
     # Ejecutar el episodio hasta max_steps o hasta que el entorno indique que ha terminado.
