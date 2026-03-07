@@ -93,4 +93,51 @@ class AgenteMC_OffPolicy(Agent):
             
 
 
+    def update_first_visit(self, episode: List[Tuple[int, int, float]]):
+        """
+        Actualiza la tabla Q utilizando Off-Policy MC Control.
+        
+        Args:
+            episode: Lista de tuplas (state, action, reward) generadas por la política de comportamiento.
+        """
+        G = 0.0
+        W = 1.0  # Peso de importancia
+
+        # Índice de primera aparición de cada (state,action)
+        first_idx = {}  # (s,a) -> t
+        for t, (s, a, r) in enumerate(episode):
+            key = (s, a)
+            if key not in first_idx:
+                first_idx[key] = t
+        
+        # Iteramos el episodio al revés
+        # episode[t] = (S_t, A_t, R_{t+1})
+        for t in range(len(episode) - 1, -1, -1):
+            state, action, reward = episode[t]
+            
+            G = self.discount_factor * G + reward
+
+            key = (state, action)
+
+            if t != first_idx[key]:
+                continue
+            
+            self.C[state, action] += W
+            
+            # Actualización incremental ponderada:
+            # Q(S,A) := Q(S,A) + (W / C(S,A)) * (G - Q(S,A))
+            self.Q[state, action] += (W / self.C[state, action]) * (G - self.Q[state, action])
+            
+            # Política objetivo (Target Policy) es Greedy
+            self.policy[state] = np.argmax(self.Q[state])
+            
+            # Si la acción tomada NO fue la mejor según la política objetivo,
+            # entonces la probabilidad de esa acción en la target policy es 0.
+            # Por tanto, W * (pi(a|s) / b(a|s)) será 0 (ya que pi(a|s)=0).
+            if action != self.policy[state]:
+                break
+
+            #Actualizamos el factor de importancia W
+            W = W * (1.0 / ((1.0 - self.epsilon) + (self.epsilon / self.nA)))  # b(a|s) para la acción tomada, que es la probabilidad de tomar esa acción bajo la política de comportamiento epsilon-greedy.
+            
 
