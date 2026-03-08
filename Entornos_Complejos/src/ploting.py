@@ -133,6 +133,26 @@ def plot(list_stats):
   plt.grid(True)
   plt.show()
 
+# Función de visualización de Recompensas
+def plot_rewards(results, title_suffix):
+    plt.figure(figsize=(12, 6))
+
+    for name, data in results.items():
+        stats = data['stats']
+        plt.plot(stats, label=name)
+
+    plt.xlabel('Episodios')
+    plt.ylabel('Recompensa Promedio Acumulada')
+    plt.title(f'Comparación de Proporción de Recompensa ({title_suffix})')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
+    # Imprimir valores finales
+    print(f"Rendimiento final (Promedio Acumulado) - {title_suffix}:")
+    for name, data in results.items():
+        print(f"{name}: {data['stats'][-1]:.4f}")
+
 # Define la función para mostrar el tamaño de los episodios
 def plot_lengths(episode_lengths):
     indices = list(range(len(episode_lengths)))
@@ -194,6 +214,31 @@ def plot_two_lengths(episode_lengths1, episode_lengths2, window_size=50):
     fig.suptitle('Longitud de los episodios durante el entrenamiento')
     ax1.set_ylabel('Longitud (Pasos)')  # eje Y compartido
     plt.tight_layout()
+    plt.show()
+
+def plot_lengths_comparison(data_dict, title_suffix="", window_size=50):
+    plt.figure(figsize=(12, 6))
+
+    for name, lengths in data_dict.items():
+        if isinstance(lengths, dict) and 'lengths' in lengths:
+            data = lengths['lengths']
+        elif isinstance(lengths, (list, np.ndarray, pd.Series)):
+             data = lengths
+        else:
+             print(f"Skipping {name}: data format not recognized.")
+             continue
+            
+        if len(data) >= window_size:
+            moving_avg = np.convolve(data, np.ones(window_size)/window_size, mode='valid')
+            plt.plot(range(window_size-1, len(data)), moving_avg, label=name)
+        else:
+            plt.plot(data, label=name, alpha=0.6)
+
+    plt.xlabel('Episodios')
+    plt.ylabel(f'Longitud Promedio (Media móvil {window_size})')
+    plt.title(f'Comparación de Longitud de Episodios ({title_suffix})')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
     plt.show()
 
 def get_latest_episode_video_file(directory):
