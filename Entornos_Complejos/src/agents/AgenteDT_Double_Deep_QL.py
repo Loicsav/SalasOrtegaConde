@@ -28,6 +28,15 @@ class QNetwork(nn.Module):
 class AgenteDT_DobleDeepQL(Agent):
     def __init__(self, env, seed: int, num_episodes: int = 1000, discount_factor: float = 1.0, epsilon: float = 0.1, decay: bool = False, decay_rate:float=1000.0):
         super().__init__(env, seed)
+        # Fijar semillas para reproducibilidad
+        random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+
         self.discount_factor = discount_factor  
         self.epsilon = epsilon
         self.epsilon_init = epsilon
@@ -46,7 +55,7 @@ class AgenteDT_DobleDeepQL(Agent):
         self.targetNetwork = QNetwork(state_dim_one_hot, self.nA).to(self.device)
         self.update_target_network()
 
-        self.d = deque(maxlen=10000)
+        self.d = deque(maxlen=1000)
     
     def save_experience(self, state, action, reward, next_state, done):
         self.d.append((state, action, reward, next_state, done))
