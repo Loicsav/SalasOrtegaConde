@@ -241,6 +241,30 @@ def plot_lengths_comparison(data_dict, title_suffix="", window_size=50):
     plt.grid(True, alpha=0.3)
     plt.show()
 
+# Reiniciamos las funciones de ploteo para asegurar que usen la versión correcta que soporta diccionarios de resultados
+def moving_average(a, n=100) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+def plot_lengths_comparison_global(results, title_suffix, window_size=100):
+    plt.figure(figsize=(12, 6))
+
+    for name, data in results.items():
+        lengths = data['lengths']
+        if len(lengths) > window_size:
+            smoothed_lengths = moving_average(lengths, window_size)
+            plt.plot(smoothed_lengths, label=f"{name} (Media Móvil {window_size})")
+        else:
+            plt.plot(lengths, label=name, alpha=0.5)
+
+    plt.xlabel('Episodios')
+    plt.ylabel('Longitud de Episodio (Pasos)')
+    plt.title(f'Comparación de Longitud de Episodios ({title_suffix})')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.show()
+
 def get_latest_episode_video_file(directory):
     # Expresión regular que coincide con el formato de los ficheros de video
     pattern = re.compile(r"rl-video-episode-(\d+)\.mp4")
