@@ -1,7 +1,7 @@
-# Práctica 1 Extensión de Machine Learning (k_brazos)
+# Práctica 1 Extensiones de Machine Learning (k_brazos)
 ## Información
 - **Alumnos:** Salas, Manuel; Ortega, Alberto; Conde, Lola
-- **Asignatura:** Extensión de Machine Learning
+- **Asignatura:** Extensiones de Machine Learning
 - **Curso:** 2025/2026
 - **Grupo:** SalasOrtegaConde
 
