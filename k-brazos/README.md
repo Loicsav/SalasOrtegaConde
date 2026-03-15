@@ -6,9 +6,14 @@
 - **Grupo:** SalasOrtegaConde
 
 ## Descripción
+Esta carpeta contiene el análisis de los algoritmos para el problema de k-brazos
 
 ## Estructura
+En esta carpeta se encuentran:
+- Los notebook de análisis de los algoritmos [Softmax](./Gradiente.ipynb), [epislon-greedy](./Greedy.ipynb), y [UCB1](./UCB.ipynb)
+- El [notebook de comparación de todos los algoritmos](./ComparativaAlgoritmos.ipynb)
+- Un [notebook que referencia los notebooks de esta carpeta](./main.ipynb)
+- La [carpeta con el código fuente](./src) usado en los notebooks
 
 ## Instalación y Uso
-
-## Tecnologías Utilizadas
+Para ejecutar los notebooks, se debe clicar en "Open in colab" de cada notebook, que abrirá para dicho notebook en Google Colab.
